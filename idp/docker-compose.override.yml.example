@@ -1,0 +1,13 @@
+# Exemplo de override para desenvolvimento local
+# Copie este arquivo para docker-compose.override.yml e ajuste conforme necessário
+
+version: '3.8'
+
+services:
+  azure-prs-api:
+    volumes:
+      # Monta os arquivos Python para desenvolvimento (hot reload)
+      - ../approve_merge_qas.py:/app/approve_merge_qas.py
+      - ../watch_qas_pipelines_notify_teams-internal.py:/app/watch_qas_pipelines_notify_teams-internal.py
+      - ../azure-prs-api/main.py:/app/main.py
+    command: ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -1,0 +1,71 @@
+version: '3.8'
+
+networks:
+  backstage-network:
+    driver: bridge
+
+services:
+
+  backstage:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: backstage-idp
+    ports:
+      - "3000:3000"   # frontend
+      - "7007:7007"   # backend
+    environment:
+      - AZURE_DEVOPS_PAT=${AZURE_DEVOPS_PAT}
+      - REVIEWER_ID=${REVIEWER_ID}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=backstage
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - AZURE_PR_API_URL=http://azure-prs-api:8000
+    depends_on:
+      db:
+        condition: service_healthy
+      azure-prs-api:
+        condition: service_started
+    networks:
+      - backstage-network
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: backstage-db
+    environment:
+      POSTGRES_USER: backstage
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: backstage
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U backstage"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backstage-network
+    restart: unless-stopped
+
+  # API Python para automação Azure DevOps
+  azure-prs-api:
+    build:
+      context: ..  # contexto no diretório pai para acessar os scripts
+      dockerfile: azure-prs-api/Dockerfile
+    container_name: azure-prs-api
+    environment:
+      - AZURE_DEVOPS_PAT=${AZURE_DEVOPS_PAT}
+      - REVIEWER_ID=${REVIEWER_ID}
+      - TEAMS_WEBHOOK_URL=${TEAMS_WEBHOOK_URL}
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - backstage-network
+
+volumes:
+  postgres_data:
